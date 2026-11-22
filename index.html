@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>그림 연말정산</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&family=Anton&family=Noto+Sans+Symbols+2&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: 조용하고 깔끔한 작업 도구 — 그림이 주인공, UI는 한 발 물러남
+IDEA: 벽에 붙이는 1년치 그림 보드(연말정산 템플릿)를 바로 채워서 PNG로 저장
+PICTURE: 2000×1250 캔버스 템플릿 자체가 첫 화면의 그림
+COLOUR and TYPE: 무채색 바탕 + 시안마다 하나의 톤, 제목은 한자 年末精算(Noto Serif/Sans KR)
+LAYOUT: 상단 시안 탭 → 캔버스 → 아래 컨트롤 한 줄, 600px 이하에선 세로로 쌓기
+*/
+:root{color-scheme:light dark;--bg:light-dark(#f4f3f1,#151515);--ink:light-dark(#1b1b1b,#ececec);--mute:light-dark(#6d6a66,#9a9893);--line:light-dark(#dcd9d4,#2e2e2e);--card:light-dark(#ffffff,#1f1f1f);--acc:#e4466a}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:1240px;margin:0 auto;padding:clamp(18px,3vw,36px) max(4vw,14px) 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:16px}
+h1{margin:0;font:700 clamp(24px,3vw,32px)/1.05 "Noto Serif KR",serif;letter-spacing:-.01em}
+h1 small{font:500 15px "Noto Sans KR",sans-serif;color:var(--mute);margin-left:10px;letter-spacing:0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);font:500 15px "Noto Sans KR",sans-serif;padding:0 16px;min-height:44px;border-radius:999px;cursor:pointer}
+.tab[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab:focus-visible,.btn:focus-visible,select:focus-visible,input:focus-visible,.sw:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:clamp(8px,1.4vw,16px);box-shadow:0 14px 40px -24px rgba(0,0,0,.35)}
+canvas{display:block;width:100%;height:auto;border-radius:6px;touch-action:none;cursor:pointer}
+.drop{position:absolute;inset:0;border:3px dashed var(--acc);border-radius:14px;background:color-mix(in srgb,var(--acc) 10%,transparent);display:none;place-items:center;font-weight:700;color:var(--acc)}
+.stage.over .drop{display:grid}
+.hint{color:var(--mute);font-size:14px;margin:10px 2px 0}
+.sel{display:none;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.sel.on{display:flex}
+.sel b{font-weight:700}
+.sel input[type=range]{width:min(240px,50vw);accent-color:var(--acc);height:44px}
+.bar{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;margin-top:18px}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grp>span{font-size:14px;color:var(--mute)}
+.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);font:500 15px "Noto Sans KR",sans-serif;min-height:44px;padding:0 16px;border-radius:10px;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.btn.ghost{background:transparent}
+select,input[type=text]{font:16px "Noto Sans KR",sans-serif;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+input[type=text]{width:200px}
+.sw{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed=true]{border-color:var(--acc);box-shadow:0 0 0 2px var(--card) inset}
+.spacer{flex:1}
+.pick{position:relative;width:36px;height:36px;border-radius:50%;overflow:hidden;border:2px solid var(--line);background:conic-gradient(red,#ff0,lime,cyan,blue,#f0f,red);cursor:pointer}.pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}.pick:focus-within{outline:3px solid var(--acc);outline-offset:2px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%)}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+@media(max-width:600px){header{flex-direction:column;align-items:stretch}.tab{flex:1;padding:0 8px}.bar{flex-direction:column;align-items:stretch}.spacer{display:none}input[type=text]{width:100%;flex:1}.grp .btn{flex:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>그림 연말정산<small>年末精算</small></h1>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" width="2000" height="1250" aria-label="연말정산 템플릿 미리보기"></canvas>
+    <div class="drop">여기에 놓으면 해당 칸부터 채워져요</div>
+  </div>
+  <p class="hint">빈 칸을 누르면 그림 넣기 · 그림을 끌어서 위치 조정 · 휠이나 슬라이더로 크기 조절 · 파일을 칸 위로 끌어다 놓아도 돼요</p>
+
+  <div class="sel" id="sel">
+    <b id="selName">1월</b>
+    <label class="grp"><span>크기</span><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"></label>
+    <button class="btn" id="fit">맞춤</button>
+    <button class="btn" id="replace">교체</button>
+    <button class="btn ghost" id="remove">비우기</button>
+  </div>
+
+  <div class="bar">
+    <div class="grp"><button class="btn" id="multi">여러 장 한 번에 넣기</button></div>
+    <div class="grp" id="sws" role="group" aria-label="배경색"><span>배경</span><label class="pick" title="직접 고르기"><input type="color" id="bgc" value="#e8e6e3" aria-label="배경색 직접 고르기"></label><input type="text" id="hex" value="#e8e6e3" maxlength="7" aria-label="색상 코드" style="width:110px"></div>
+    <label class="grp"><span>서명</span><input type="text" id="sig" maxlength="30" placeholder="@닉네임 (선택)"></label>
+    <div class="spacer"></div>
+    <div class="grp">
+      <button class="btn ghost" id="clear">전체 비우기</button>
+      <button class="btn pri" id="save">PNG로 저장</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="f1" accept="image/*" hidden>
+<input type="file" id="fm" accept="image/*" multiple hidden>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+const W=2000,H=1250,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const EN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const TITLE='年末精算';
+const state={d:2,bgc:'#e8e6e3',sel:-1,lab:'auto',sig:'',bg:[0,0,0],imgs:Array(12).fill(null)};
+const PAL=[['#e6e3de','#dde3e1','#ece2dc'],['#101010','#1c2740','#4a1d22'],['#e8e6e3','#eee3e3','#e2e6ed']];
+const $=id=>document.getElementById(id);
+const label=(i,def)=>{const m=state.lab==='auto'?def:state.lab;return m==='en'?EN[i]:m==='ko'?(i+1)+'월':String(i+1).padStart(2,'0')};
+
+/* ---------- 시안별 레이아웃 ---------- */
+function layoutA(){const s=[],x0=90,gap=40,w=(W-2*x0-5*gap)/6,h=w*1.45;
+  for(let i=0;i<12;i++){const c=i%6,r=i/6|0,low=c%2===0;s.push({x:x0+c*(w+gap),y:(r?686:200)+(low?50:0),w,h})}return s}
+function layoutB(){const s=[],x0=430,y0=42,gap=24,w=(W-x0-40-5*gap)/6,h=(H-2*y0-30)/2;
+  for(let i=0;i<12;i++){const c=i%6,r=i/6|0;s.push({x:x0+c*(w+gap),y:y0+r*(h+30),w,h})}return s}
+function layoutC(){const s=[],x0=60,gap=28,w=(W-2*x0-5*gap)/6,h=438;
+  for(let i=0;i<12;i++){const c=i%6,r=i/6|0;s.push({x:x0+c*(w+gap),y:r?728:200,w,h})}return s}
+const LAY=[layoutA,layoutB,layoutC];
+
+function shapePath(d,s){ctx.beginPath();
+  if(d===0)ctx.roundRect(s.x,s.y,s.w,s.h,[6,s.w*.42,6,6]);
+  else if(d===1)ctx.rect(s.x,s.y,s.w,s.h);
+  else ctx.rect(s.x,s.y,s.w,s.h);}
+
+function drawImg(d,s,i){const o=state.imgs[i];ctx.save();shapePath(d,s);ctx.fillStyle='#fff';ctx.fill();
+  if(o){ctx.clip();const b=Math.max(s.w/o.img.width,s.h/o.img.height)*o.z,dw=o.img.width*b,dh=o.img.height*b;
+    ctx.drawImage(o.img,s.x+s.w/2+o.ox*s.w-dw/2,s.y+s.h/2+o.oy*s.h-dh/2,dw,dh)}
+  ctx.restore()}
+
+function plus(s,col){ctx.save();ctx.strokeStyle=col;ctx.lineWidth=3;const cx=s.x+s.w/2,cy=s.y+s.h/2;
+  ctx.beginPath();ctx.moveTo(cx-16,cy);ctx.lineTo(cx+16,cy);ctx.moveTo(cx,cy-16);ctx.lineTo(cx,cy+16);ctx.stroke();ctx.restore()}
+
+/* ---------- 시안 A : 아이보리 아치 ---------- */
+function renderA(screen){const bg=PAL[0][state.bg[0]];ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=16;ctx.lineCap='round';
+  [[[-60,980],[380,620],[820,1320],[1180,880]],[[900,-40],[1300,420],[1500,-120],[2060,330]],[[1300,1290],[1560,860],[1900,1180],[2080,760]]].forEach(([a,b,c,d])=>{ctx.beginPath();ctx.moveTo(...a);ctx.bezierCurveTo(...b,...c,...d);ctx.stroke()});
+  ctx.restore();
+  ctx.fillStyle='#2a2826';ctx.font='700 64px "Noto Serif KR"';ctx.textBaseline='alphabetic';ctx.fillText(TITLE,88,150);
+  const L=layoutA();L.forEach((s,i)=>{drawImg(0,s,i);
+    ctx.fillStyle='#4a4743';ctx.font=state.lab==='ko'?'500 24px "Noto Sans KR"':'italic 500 30px "Cormorant Garamond"';
+    const t=label(i,'en');ctx.fillText(state.lab==='auto'||state.lab==='en'?'('+t+')':t,s.x+2,s.y-14);
+    if(screen&&!state.imgs[i])plus(s,'#cfcac3')});
+  ctx.fillStyle='#6f6a64';ctx.font='500 22px "Noto Sans KR"';ctx.textAlign='right';
+  if(state.sig)ctx.fillText(state.sig,W-90,H-46);ctx.textAlign='left';
+  ctx.fillStyle='#2a2826';ctx.beginPath();ctx.roundRect(90,H-80,128,48,24);ctx.fill();
+  ctx.fillStyle=bg;ctx.font='700 24px "Noto Serif KR"';ctx.textAlign='center';ctx.fillText('精算',154,H-47);ctx.textAlign='left';
+  ctx.fillStyle='#8a857f';ctx.font='italic 500 30px "Cormorant Garamond"';ctx.fillText('a year in drawings',240,H-46);
+  return L}
+
+/* ---------- 시안 B : 모노 그리드 ---------- */
+function outlined(t,x,y,size,font,wt=''){ctx.font=`${wt} ${size}px ${font}`;ctx.lineJoin='round';
+  ctx.fillStyle='#111';ctx.fillText(t,x+size*.06,y+size*.06);
+  ctx.fillStyle='#fff';ctx.fillText(t,x,y);ctx.strokeStyle='#111';ctx.lineWidth=Math.max(2,size*.045);ctx.strokeText(t,x,y)}
+function renderB(screen){const bg=PAL[1][state.bg[1]];ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#fff';ctx.fillRect(28,0,362,H);ctx.fillStyle=bg;ctx.fillRect(0,250,28,60);
+  ctx.fillStyle='#111';ctx.fillRect(70,74,282,2);
+  ctx.textBaseline='alphabetic';[...TITLE].forEach((c,k)=>{ctx.fillStyle='#111';ctx.font='900 160px "Noto Sans KR"';ctx.fillText(c,128,270+k*180)});
+  ctx.fillStyle='#111';[0,1,2].forEach(k=>{ctx.beginPath();ctx.arc(86,1000+k*20,5,0,7);ctx.fill()});
+  ctx.fillRect(28,H-150,362,2);
+  ctx.font='500 26px "Noto Sans KR"';ctx.fillText(state.sig||'Year End',70,H-98);
+  let bx=70;for(let k=0;bx<350;k++){const w=[2,4,2,6,3,2,5][k%7];ctx.fillRect(bx,H-70,w,34);bx+=w+[3,2,5,3,2,4][k%6]}
+  const L=layoutB();L.forEach((s,i)=>{drawImg(1,s,i);if(screen&&!state.imgs[i])plus(s,'#d8d8d8');
+    ctx.save();ctx.textBaseline='alphabetic';const t=label(i,'num');
+    outlined(t,s.x+18,s.y+s.h-22,state.lab==='ko'?54:70,state.lab==='ko'?'"Noto Sans KR"':'"Anton"',state.lab==='ko'?'900':'');ctx.restore()});
+  return L}
+
+/* ---------- 시안 C : 오벌 프레임 ---------- */
+function star(x,y,r){ctx.beginPath();ctx.moveTo(x,y-r);ctx.quadraticCurveTo(x,y,x+r*.8,y);ctx.quadraticCurveTo(x,y,x,y+r);ctx.quadraticCurveTo(x,y,x-r*.8,y);ctx.quadraticCurveTo(x,y,x,y-r);ctx.fill()}
+function renderC(screen){const bg=state.bgc;ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  const n=parseInt(bg.slice(1),16),lum=(0.299*(n>>16)+0.587*(n>>8&255)+0.114*(n&255))/255;const ink=lum<.5?'#f4f2ef':'#1d1c1b',tagInk='#1d1c1b';ctx.fillStyle=ink;ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.font='900 88px "Noto Serif KR"';ctx.fillText(TITLE,W/2,146);
+  if(false){ctx.font='52px "Noto Sans Symbols 2","Noto Sans KR",sans-serif';ctx.textBaseline='middle';ctx.fillText(state.orn,W/2-tw/2-68,114);ctx.fillText(state.orn,W/2+tw/2+68,114);ctx.textBaseline='alphabetic'}
+  ctx.textAlign='left';ctx.fillStyle=ink;
+  if(state.sig){ctx.textAlign='right';ctx.font='500 22px "Noto Sans KR"';ctx.fillText(state.sig,W-60,56);ctx.textAlign='left'}
+  const L=layoutC();L.forEach((s,i)=>{
+    drawImg(2,s,i);ctx.save();shapePath(2,s);ctx.strokeStyle='#e0dbd4';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+    if(screen&&!state.imgs[i])plus(s,'#d3cec7');
+    const cx=s.x+s.w/2,cy=s.y+s.h+10;ctx.fillStyle='#fff';ctx.strokeStyle='#8f8a84';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(cx,cy,52,32,0,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle=tagInk;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='700 30px "Noto Serif KR"';
+    ctx.fillText((i+1)+'月',cx,cy+2);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
+  return L}
+
+const R=[renderA,renderB,renderC];let slots=[];
+function render(screen=true){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,W,H);slots=R[state.d](screen);
+  if(screen&&state.sel>=0){const s=slots[state.sel];ctx.save();shapePath(state.d,s);ctx.setLineDash([14,10]);ctx.lineWidth=6;ctx.strokeStyle='#e4466a';ctx.stroke();ctx.restore()}}
+
+/* ---------- 이미지 다루기 ---------- */
+function loadFile(file){return new Promise((ok,no)=>{const img=new Image();img.onload=()=>ok(img);img.onerror=no;img.src=URL.createObjectURL(file)})}
+async function put(i,file){try{const img=await loadFile(file);const old=state.imgs[i];if(old)URL.revokeObjectURL(old.img.src);state.imgs[i]={img,z:1,ox:0,oy:0}}catch(e){toast('이미지를 읽지 못했어요')}}
+async function fillEmpty(files){files=[...files].filter(f=>f.type.startsWith('image/')).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  let n=0;for(const f of files){const i=state.imgs.indexOf(null);if(i<0)break;await put(i,f);n++}
+  if(n<files.length)toast(`빈 칸이 없어서 ${files.length-n}장은 넣지 못했어요`);render();updSel()}
+async function fillAt(start,files){files=[...files].filter(f=>f.type.startsWith('image/'));
+  if(files.length===1){await put(start,files[0]);state.sel=start}
+  else{let i=start;for(const f of files){while(i<12&&state.imgs[i]&&i!==start)i++;if(i>=12)break;await put(i,f);i++}}
+  render();updSel()}
+
+function pt(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+function hit(p){return slots.findIndex(s=>p.x>=s.x&&p.x<=s.x+s.w&&p.y>=s.y&&p.y<=s.y+s.h)}
+
+let drag=null,target=-1;
+cv.addEventListener('pointerdown',e=>{const p=pt(e),i=hit(p);
+  if(i<0){state.sel=-1;render();updSel();return}
+  if(!state.imgs[i]){target=i;$('f1').click();return}
+  state.sel=i;drag={i,x:p.x,y:p.y,moved:false};cv.setPointerCapture(e.pointerId);render();updSel()});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const p=pt(e),o=state.imgs[drag.i],s=slots[drag.i];
+  o.ox+=(p.x-drag.x)/s.w;o.oy+=(p.y-drag.y)/s.h;drag.x=p.x;drag.y=p.y;drag.moved=true;render()});
+cv.addEventListener('pointerup',()=>{drag=null});
+cv.addEventListener('dblclick',e=>{const i=hit(pt(e));if(i>=0){target=i;$('f1').click()}});
+cv.addEventListener('wheel',e=>{const i=hit(pt(e));if(i<0||!state.imgs[i])return;e.preventDefault();
+  const o=state.imgs[i];o.z=Math.min(3,Math.max(1,o.z*(e.deltaY<0?1.06:1/1.06)));state.sel=i;render();updSel()},{passive:false});
+
+$('f1').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f||target<0)return;await put(target,f);state.sel=target;render();updSel()});
+$('fm').addEventListener('change',async e=>{const fs=[...e.target.files];e.target.value='';if(fs.length)fillEmpty(fs)});
+$('multi').onclick=()=>$('fm').click();
+
+const stage=$('stage');
+stage.addEventListener('dragover',e=>{e.preventDefault();stage.classList.add('over')});
+stage.addEventListener('dragleave',e=>{if(!stage.contains(e.relatedTarget))stage.classList.remove('over')});
+stage.addEventListener('drop',e=>{e.preventDefault();stage.classList.remove('over');const i=hit(pt(e));const fs=e.dataTransfer.files;if(!fs.length)return;i>=0?fillAt(i,fs):fillEmpty(fs)});
+
+/* ---------- 선택 바 ---------- */
+function updSel(){const on=state.sel>=0&&state.imgs[state.sel];$('sel').classList.toggle('on',!!on);if(!on)return;
+  $('selName').textContent=(state.sel+1)+'월';$('zoom').value=state.imgs[state.sel].z}
+$('zoom').oninput=e=>{const o=state.imgs[state.sel];if(o){o.z=+e.target.value;render()}};
+$('fit').onclick=()=>{const o=state.imgs[state.sel];if(o){o.z=1;o.ox=0;o.oy=0;render();updSel()}};
+$('replace').onclick=()=>{target=state.sel;$('f1').click()};
+$('remove').onclick=()=>{const o=state.imgs[state.sel];if(o)URL.revokeObjectURL(o.img.src);state.imgs[state.sel]=null;state.sel=-1;render();updSel()};
+
+let clearArm=0;
+$('clear').onclick=e=>{if(Date.now()-clearArm>2500){clearArm=Date.now();e.target.textContent='한 번 더 누르면 비워져요';setTimeout(()=>e.target.textContent='전체 비우기',2500);return}
+  state.imgs.forEach(o=>o&&URL.revokeObjectURL(o.img.src));state.imgs=Array(12).fill(null);state.sel=-1;clearArm=0;e.target.textContent='전체 비우기';render();updSel()};
+
+/* ---------- 시안 / 옵션 ---------- */
+function swatches(){const box=$('sws');box.querySelectorAll('.sw').forEach(b=>b.remove());
+  const pk=box.querySelector('.pick');['#e8e6e3','#f3eee6','#eee3e3','#e2e6ed','#e4e9e1','#2b2b2b'].forEach((c,k)=>{const b=document.createElement('button');b.className='sw';b.style.background=c;b.setAttribute('aria-label','배경색 '+(k+1));
+    b.setAttribute('aria-pressed',state.bgc===c);b.onclick=()=>setBg(c);box.insertBefore(b,pk)})}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{state.d=+t.dataset.d;
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-pressed',x===t));swatches();render();updSel()});
+function setBg(c,from){state.bgc=c;if(from!=='pick')$('bgc').value=c;if(from!=='hex')$('hex').value=c;swatches();render()}
+$('bgc').oninput=e=>setBg(e.target.value,'pick');
+$('hex').oninput=e=>{const v=e.target.value.trim();if(/^#?[0-9a-f]{6}$/i.test(v))setBg((v[0]==='#'?v:'#'+v).toLowerCase(),'hex')};
+$('sig').oninput=e=>{state.sig=e.target.value.trim();render()};
+
+/* ---------- 저장 ---------- */
+let dl=null;
+(async()=>{try{if(window.claude&&claude.use)dl=await claude.use('downloads')}catch(e){}})();
+$('save').onclick=async()=>{render(false);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));render(true);
+  const name=`연말정산_시안${'ABC'[state.d]}.png`;
+  if(dl){try{await dl.save({filename:name,data:blob});toast('저장했어요')}catch(e){if(e&&e.code!=='declined')toast('저장하지 못했어요 — 새 탭에서 열어 길게 눌러 저장해 주세요'),openTab(blob)}}
+  else openTab(blob)};
+function openTab(blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='연말정산.png';a.target='_blank';document.body.appendChild(a);a.click();a.remove()}
+
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
+
+swatches();render();
+Promise.all([
+  document.fonts.load('900 96px "Noto Serif KR"',TITLE),document.fonts.load('700 76px "Noto Serif KR"',TITLE+'精算월'),
+  document.fonts.load('900 176px "Noto Sans KR"',TITLE+'월0123456789'),document.fonts.load('500 26px "Noto Sans KR"','Year End@가나다'),
+  document.fonts.load('70px "Anton"','0123456789'),document.fonts.load('52px "Noto Sans Symbols 2"','❀✳♡★☾✧'),document.fonts.load('italic 500 30px "Cormorant Garamond"','(JAN)'),
+  document.fonts.load('700 30px "Noto Serif KR"','0123456789月')
+]).catch(()=>{}).finally(()=>render());
+document.fonts.ready.then(()=>render());
+}
+</script>
+</body>
+</html>
